@@ -1,0 +1,29 @@
+﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using AICVScanner.Models
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<div class="app-layout">
+    <AuthorizeView>
+        <Authorized>
+            <nav class="sidebar">
+                <div class="sidebar-logo">⚡ CVScanner</div>
+                <a class="nav-link" href="/dashboard">🏠 Dashboard</a>
+                <a class="nav-link" href="/scan">⚡ New Scan</a>
+                <div class="nav-spacer"></div>
+                <form method="post" action="/account/logout">
+                    <AntiforgeryToken />
+                    <button type="submit" class="nav-link" style="background:none;border:none;width:100%;text-align:left;cursor:pointer;">
+                        🚪 Sign out
+                    </button>
+                </form>
+            </nav>
+        </Authorized>
+    </AuthorizeView>
+
+    <main class="page-content">
+        @Body
+    </main>
+</div>

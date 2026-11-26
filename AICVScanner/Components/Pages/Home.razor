@@ -1,0 +1,31 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>CVScanner — AI-Powered CV Matching</PageTitle>
+
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:2rem;">
+    <div style="max-width:560px;">
+        <div style="font-size:3rem;margin-bottom:1rem;">⚡</div>
+        <h1 style="font-size:3rem;line-height:1.15;margin-bottom:1rem;">AI-Powered CV<br />Job Matching</h1>
+        <p style="color:var(--text-muted);font-size:1.1rem;margin-bottom:2rem;">
+            Upload your CV, paste a job description, and get an instant AI compatibility score with detailed improvement suggestions.
+        </p>
+        <div style="display:flex;gap:1rem;justify-content:center;">
+            <a href="/register" class="btn-primary" style="font-size:1rem;padding:0.9rem 2rem;">Get started free →</a>
+            <a href="/login" class="btn-secondary" style="font-size:1rem;padding:0.9rem 2rem;">Sign in</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo("/dashboard");
+        }
+    }
+}

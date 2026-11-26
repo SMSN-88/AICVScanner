@@ -1,0 +1,123 @@
+﻿@page "/scan"
+@using AICVScanner.Models
+@using AICVScanner.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject ScanService ScanService
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>New Scan - CVScanner</PageTitle>
+<div class="scan-container">
+    <div class="scan-header">
+        <h1>New CV Scan</h1>
+        <p>Upload your CV and paste the job description to get your AI match score.</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert-error">@errorMessage</div>
+    }
+
+    <div class="scan-grid">
+        <div class="scan-card">
+            <h2>1. Upload your CV</h2>
+            <p class="hint">PDF or Text format, max 5MB</p>
+            <div class="upload-zone" @(selectedFile != null ? "has-file" : "")">
+                <div class="upload-prompt">
+                    @if (selectedFile == null)
+                    {
+                        <span class="upload-icon">📄</span>
+                        <span>Click below to choose file</span>
+                        <span class="upload-sub">PDF or Text</span>
+                    }
+                    else
+                    {
+                        <span class="upload-icon"></span>
+                        <span>@selectedFile.Name</span>
+                        <span class="upload-sub">@FormatFileSize(selectedFile.Size)</span>
+                    }
+                </div>
+            </div>
+            <InputFile OnChange="OnFileSelected" accept=".pdf, .txt" style="margin-top:0.75rem;" />
+        </div>
+
+        <div class="scan-card">
+            <h2>2. Paste Job Description</h2>
+            <p class="hint">Copy the full job posting here</p>
+            <textarea @bind=jobDescription"
+                placeholder="Paste the job description here..."
+                class="job-textarea"
+                rows="12"></textarea>
+        </div>
+            </div>
+
+            <div class="scan-action">
+                <button class="btn-scan" @onclick="RunScan"
+                disabled="@(isScanning || selectedFile == null || string.IsNullOrWhiteSpace(jobDescription))">
+            @if (isScanning)
+            {
+                <span class="scanning-anim"> Analysing with AI...</span>
+            }
+            else
+            {
+                <span> Run AI Scan</span>
+            }
+            
+            </button>
+
+            @if (selectedFile == null || string.IsNullOrWhiteSpace(jobDescription))
+            {
+                <p class="scan-hint">Please upload a CV and paste the job description to enable scanning.</p>
+        }
+)
+            </div>
+</div>
+
+@code {
+    private IBrowserFile? selectedFile;
+    private string jobDescription = "";
+    private bool isScanning = false;
+    private string errorMessage = "";
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        errorMessage = "";
+    }
+
+    private async Task RunScan()
+    {
+        if (selectedFile == null || string.IsNullOrWhiteSpace(jobDescription)) return;
+        isScanning = true;
+        errorMessage = "";
+
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = await UserManager.GetUserAsync(authState.User);
+            if (user == null) { Navigation.NavigateTo("/login"); return; }
+
+            var result = await ScanService.RunScanAsync(user.Id, selectedFile, jobDescription);
+            Navigation.NavigateTo($"/results/{result.Id}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Something went wrong: {ex.Message}";
+        }
+        finally
+        {
+            isScanning = false;
+        }
+
+    }
+
+    private string FormatFileSize(long bytes) =>
+    bytes < 1024 ? $"{bytes} B" :
+    bytes < 1024 * 1024 ? $"{bytes / 1024} KB" :
+    $"{bytes / (1024 * 1024)} MB";
+}

@@ -1,0 +1,142 @@
+﻿@page "/results/{id:int}"
+@using AICVScanner.Data
+@using AICVScanner.Models
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using System.Text.Json
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject AppDbContext Db
+@inject NavigationManager Navigation
+
+<PageTitle>Scan Results - CVScanner</PageTitle>
+
+@if (result == null)
+{
+    <div class="loading-screen">
+        <div class="loading-spinner"></div>
+        <p>Loading results...</p>
+    </div>
+}
+else
+{
+    <div class="results-container">
+        <div class="results-header">
+            <a href="/dashboard" class="back-link">← Back to Dashboard</a>
+            <h1>Scan Results</h1>
+            <p class="scan-date">@result.CreatedAt.ToString("MMMM d, yyyy - h:mm tt")</p>
+        </div>
+
+        <div class="scores-grid">
+            <div class="score-card">
+                <div class="score-label">Match Score</div>
+                <div class="score-value @GetScoreClass(result.MatchScore)">@result.MatchScore<span>%</span></div>
+                <div class="score-bar"><div class="score-fill" style="width:@result.MatchScore%"></div></div>
+                <div class="score-desc">@GetMatchDescription(result.MatchScore)></div>
+            </div>
+
+            <div class="score-card">
+                <div class="score-label">ATS Score</div>
+                <div class="score-value @GetScoreClass(result.AtsScore)">@result.AtsScore<span>%</span></div>
+                <div class="score-bar"><div class="score-fill ats" style="width:@result.AtsScore%"></div></div>
+            <div class="score-desc">ATS Compatibility</div>
+            </div>
+
+        </div>
+
+        <div class="result-section">
+            <h2> CV Scanned</h2>
+            <p class="cv-filename">@result.CvDocument?.FileName</p>
+        </div>
+
+        @if (missingSkills.Any())
+        {
+            <div class="result-section">
+                <h2>Missing Skills & Keywords</h2>
+                <p class="section-hint"> These appear in the job description but are absent or underrepresented in your CV:</p>
+                <div class="tags-grid">
+                    @foreach (var skill in missingSkills)
+                    {
+                        <span class="tag tag-missing">@skill</span>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (suggestions.Any())
+        {
+            <div class="result-section">
+                <h2> AI Improvement Suggestions</h2>
+                <ul class="suggestions-list">
+                    @foreach (var s in suggestions)
+                    {
+                        <li>@s</li>
+                    }
+        )
+                </ul>
+            </div>
+        }
+        @if (keywords.Any())
+        {
+            <div class="result-section">
+                <h2>Keyword Density Analysis</h2>
+                <div class="keyword-grid">
+                    @foreach (var kv in keywords.OrderByDescending(k => k.Value).Take(10))
+                    {
+                        <div class="keyword-item">
+                            <span class="keyword-text">@kv.Key</span>
+                            <div class="keyword-bar-wrap">
+                                <div class="keyword-bar" style="width:@Math.Min(kv.Value * 20, 100)%"></div>
+                            </div>
+                            <span class="keyword-count">@kv.Value</span>
+                        </div>
+                    }        
+                </div>
+            </div>
+        }
+
+        <div class="results-actions">
+            <a href="/scan" class="btn-primary">Run AnotherScan</a>
+            <a href="/dashboard" class="btn-secondary">Go to Dashboard</a>
+        </div>
+    </div>
+}
+
+@code{
+    [Parameter] public int Id { get; set; }
+
+    private ScanResult? result;
+    private List<string> missingSkills = new();
+    private List<string> suggestions = new();
+    private Dictionary<string, int> keywords = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        result = await Db.ScanResults
+            .Include(s => s.CvDocument)
+            .FirstOrDefaultAsync(s => s.Id == Id);
+
+        if (result == null) { Navigation.NavigateTo("/dashboard"); return; }
+
+        if (!string.IsNullOrEmpty(result.MissingSkills))
+            missingSkills = JsonSerializer.Deserialize<List<string>>(result.MissingSkills) ?? new();
+
+        if (!string.IsNullOrEmpty(result.Suggestions))
+            suggestions = JsonSerializer.Deserialize<List<string>>(result.Suggestions) ?? new();
+
+        if (!string.IsNullOrEmpty(result.KeywordAnalysis))
+            keywords = JsonSerializer.Deserialize<Dictionary<string, int>>(result.KeywordAnalysis) ?? new();
+    }
+
+    private string GetScoreClass(int score) => score >= 75 ? "score-high" : score >= 50 ? "score-mid" : "score-low";
+
+    private string GetMatchDescription(int score) =>
+        score >= 80 ? "Excellent match — strong candidate!" :
+        score >= 60 ? "Good match — some gaps to address" :
+        score >= 40 ? "Moderate match — significant improvements needed" :
+        "Low match — consider tailoring your CV";
+    }
+}
+
+
+          

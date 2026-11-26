@@ -1,0 +1,95 @@
+﻿@page "/dashboard"
+@using AICVScanner.Models
+@using AICVScanner.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject ScanService ScanService
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Dashboard - CVScanner</PageTitle>
+
+<div class="dashboard-container">
+    <div class="dashboard-headser">
+        <div>
+            <h1>Dashboard</h1>
+            <p>@(userName != null ? $"Welcome back, {userName}" : "Your scan history")</p>
+        </div>
+        <a href="/scan" class="btn-primary">+ New Scan</a>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-screen">
+            <div class="loading-spinner"></div>
+        </div>
+    }
+
+    else if (!scans.Any())  
+    {
+        <div class="empty-state">
+            <span class="empty-icon"></span>
+            <h2>No scans yet</h2>
+            <p>Upload your CV and paste a job description to get your first AI match score.</p>
+            <a href="/scan" class="btn-primary">Run your first scan</a>
+        </div>
+    }
+
+    else
+    {
+        <div class="scans-grid">
+            @foreach (var scan in scans)
+            {
+                <a href="/results/@scan.Id" class="scan-card-link">
+                    <div class="scan-history-card">
+                        <div class="scan-card-top">
+                            <span class="cv-name">@scan.CvDocument?.FileName</span>
+                            <span class="scan-date-label">@scan.CreatedAt.ToString("MMM d, yyyy")</span>
+                        </div>  
+                        <div class="scan-card-scores">
+                            <div class="mini-score @GetScoreClass(scan.MatchScore)">
+                                <span>Match</span>
+                                <strong>@scan.MatchScore%</strong>
+                            </div>
+                            <div class="mini-score @GetScoreClass(scan.AtsScore)">
+                                <span>ATS</span>
+                                <strong>@scan.AtsScore%</strong>
+                            </div>
+                        </div>
+                        <div class="scan-card-preview">
+                            @scan.JobDescription[..Math.Min(120, scan.JobDescription.Length)]...
+                        </div>
+                    </div>
+                    </a>
+            }
+        </div>
+    }
+</div>
+
+
+@code {
+    private List<ScanResult> scans = new();
+    private string? userName;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = await UserManager.GetUserAsync(authState.User);
+
+        if (user != null)
+        {
+            userName = user.FullName;
+            scans = await ScanService.GetUserScansAsync();
+        }
+        isLoading = false;
+    }
+    private string GetScoreClass(int score)     {
+        if (score >= 80) return "score-high";
+        if (score >= 50) return "score-medium";
+        return "score-low";
+    }
+}
